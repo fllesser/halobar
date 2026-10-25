@@ -22,7 +22,7 @@ use qq_music::DisplayMode;
 #[cfg(windows)]
 const DEVICE_RETRY_INTERVAL: Duration = Duration::from_secs(3);
 #[cfg(windows)]
-const CONNECTION_NOTICE_DURATION: Duration = Duration::from_secs(5);
+const CONNECTION_NOTICE_DURATION: Duration = Duration::from_secs(3);
 
 fn main() {
     if let Err(error) = run() {

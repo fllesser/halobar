@@ -6,7 +6,7 @@ use std::{
 use super::{cache, display, lyrics, smtc};
 use crate::{log_message, pixelbar};
 
-const LYRIC_SYNC_LEAD_MS: u64 = 150;
+const LYRIC_SYNC_LEAD_MS: u64 = 200;
 const MEDIA_POLL_INTERVAL_MS: u64 = 40;
 const LYRIC_RETRY_DELAY: Duration = Duration::from_secs(3);
 

@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use windows::{
     Media::Control::{
@@ -8,6 +8,8 @@ use windows::{
     },
     Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize, RoUninitialize},
 };
+
+const MEDIA_METADATA_REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 
 pub struct MediaSnapshot {
     pub app_id: String,
@@ -22,6 +24,13 @@ pub struct MediaSnapshot {
 pub struct MediaMonitor {
     _apartment: RoApartment,
     manager: GlobalSystemMediaTransportControlsSessionManager,
+    cached_metadata: Option<CachedMediaMetadata>,
+}
+
+struct CachedMediaMetadata {
+    title: String,
+    artist: String,
+    refreshed_at: Instant,
 }
 
 impl MediaMonitor {
@@ -31,15 +40,17 @@ impl MediaMonitor {
         Ok(Self {
             _apartment: apartment,
             manager,
+            cached_metadata: None,
         })
     }
 
     pub fn reconnect(&mut self) -> Result<(), String> {
         self.manager = request_manager()?;
+        self.cached_metadata = None;
         Ok(())
     }
 
-    pub fn current_qq_track(&self) -> Result<Option<MediaSnapshot>, String> {
+    pub fn current_qq_track(&mut self) -> Result<Option<MediaSnapshot>, String> {
         let sessions = self.manager.GetSessions().map_err(api_error)?;
         for index in 0..sessions.Size().map_err(api_error)? {
             let session = sessions.GetAt(index).map_err(api_error)?;
@@ -51,8 +62,10 @@ impl MediaMonitor {
                 continue;
             }
 
-            return snapshot_session(&session, app_id).map(Some);
+            let snapshot = snapshot_session(&session, app_id, &mut self.cached_metadata)?;
+            return Ok(Some(snapshot));
         }
+        self.cached_metadata = None;
         Ok(None)
     }
 }
@@ -64,9 +77,16 @@ fn request_manager() -> Result<GlobalSystemMediaTransportControlsSessionManager,
         .map_err(api_error)
 }
 
+fn metadata_refresh_due(refreshed_at: Option<Instant>, now: Instant) -> bool {
+    refreshed_at.is_none_or(|refreshed_at| {
+        now.duration_since(refreshed_at) >= MEDIA_METADATA_REFRESH_INTERVAL
+    })
+}
+
 fn snapshot_session(
     session: &GlobalSystemMediaTransportControlsSession,
     app_id: String,
+    cached_metadata: &mut Option<CachedMediaMetadata>,
 ) -> Result<MediaSnapshot, String> {
     let playback_status = session
         .GetPlaybackInfo()
@@ -76,6 +96,7 @@ fn snapshot_session(
     let playing =
         playback_status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing;
     if !playing {
+        *cached_metadata = None;
         return Ok(MediaSnapshot {
             app_id,
             title: String::new(),
@@ -92,15 +113,31 @@ fn snapshot_session(
     let start_ticks = timeline.StartTime().map_err(api_error)?.Duration;
     let end_ticks = timeline.EndTime().map_err(api_error)?.Duration;
     let position_sampled_at = Instant::now();
-    let properties = session
-        .TryGetMediaPropertiesAsync()
-        .map_err(api_error)?
-        .join()
-        .map_err(api_error)?;
+    let should_refresh_metadata = metadata_refresh_due(
+        cached_metadata
+            .as_ref()
+            .map(|metadata| metadata.refreshed_at),
+        Instant::now(),
+    );
+    if should_refresh_metadata {
+        let properties = session
+            .TryGetMediaPropertiesAsync()
+            .map_err(api_error)?
+            .join()
+            .map_err(api_error)?;
+        *cached_metadata = Some(CachedMediaMetadata {
+            title: properties.Title().map_err(api_error)?.to_string_lossy(),
+            artist: properties.Artist().map_err(api_error)?.to_string_lossy(),
+            refreshed_at: Instant::now(),
+        });
+    }
+    let metadata = cached_metadata
+        .as_ref()
+        .expect("media metadata is refreshed when the cache is empty");
     Ok(MediaSnapshot {
         app_id,
-        title: properties.Title().map_err(api_error)?.to_string_lossy(),
-        artist: properties.Artist().map_err(api_error)?.to_string_lossy(),
+        title: metadata.title.clone(),
+        artist: metadata.artist.clone(),
         position_ms: ticks.max(0) as u64 / 10_000,
         duration_ms: end_ticks.saturating_sub(start_ticks).max(0) as u64 / 10_000,
         position_sampled_at,
@@ -138,7 +175,9 @@ impl Drop for RoApartment {
 
 #[cfg(test)]
 mod tests {
-    use super::is_qq_music;
+    use std::time::{Duration, Instant};
+
+    use super::{MEDIA_METADATA_REFRESH_INTERVAL, is_qq_music, metadata_refresh_due};
 
     #[test]
     fn recognizes_qq_music_session_ids() {
@@ -146,5 +185,20 @@ mod tests {
         assert!(is_qq_music("Tencent.QQMusic_1"));
         assert!(is_qq_music("QQ音乐"));
         assert!(!is_qq_music("Spotify.exe"));
+    }
+
+    #[test]
+    fn refreshes_metadata_only_after_cache_interval() {
+        let refreshed_at = Instant::now();
+
+        assert!(!metadata_refresh_due(
+            Some(refreshed_at),
+            refreshed_at + MEDIA_METADATA_REFRESH_INTERVAL - Duration::from_millis(1)
+        ));
+        assert!(metadata_refresh_due(
+            Some(refreshed_at),
+            refreshed_at + MEDIA_METADATA_REFRESH_INTERVAL
+        ));
+        assert!(metadata_refresh_due(None, refreshed_at));
     }
 }
