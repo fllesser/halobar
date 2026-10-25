@@ -41,6 +41,18 @@ impl PixelBar {
         self.write_packet(CMD_SCREEN_SET, &payload)
     }
 
+    pub fn show_spectrum(&self) -> Result<(), String> {
+        self.show_spectrum_style(1)
+    }
+
+    pub fn show_spectrum_style(&self, style: u8) -> Result<(), String> {
+        let packet = spectrum_packet(style)?;
+        self.device
+            .write(&packet)
+            .map_err(|error| format!("发送到 PixelBar 失败: {error}"))?;
+        Ok(())
+    }
+
     pub fn send_text(&self, text: &str) -> Result<(), String> {
         let visible = limit_text(text, 32, 48);
         let utf8 = visible.as_bytes();
@@ -85,9 +97,39 @@ fn limit_text(input: &str, max_chars: usize, max_bytes: usize) -> String {
     result
 }
 
+fn spectrum_packet(style: u8) -> Result<[u8; PACKET_LENGTH], String> {
+    if !(1..=4).contains(&style) {
+        return Err(format!("不支持的频谱样式: {style}"));
+    }
+
+    let style_index = style - 1;
+    let checksum = 0x40u8.wrapping_add(0x08).wrapping_add(style_index);
+    let mut packet = [0; PACKET_LENGTH];
+    packet[..17].copy_from_slice(&[
+        0x2E,
+        0xAA,
+        0xEC,
+        CMD_SCREEN_SET,
+        0x00,
+        0x09,
+        0x01,
+        0xC0,
+        0xFF,
+        0xF2,
+        0x00,
+        0x01,
+        0x08,
+        style_index,
+        0xFF,
+        checksum,
+        0x00,
+    ]);
+    Ok(packet)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::limit_text;
+    use super::{limit_text, spectrum_packet};
 
     #[test]
     fn limits_text_by_character_count() {
@@ -105,5 +147,24 @@ mod tests {
     fn allows_thirty_two_ascii_characters() {
         let visible = limit_text("abcdefghijklmnopqrstuvwxyzABCDEF", 32, 48);
         assert_eq!(visible.chars().count(), 32);
+    }
+
+    #[test]
+    fn builds_first_spectrum_style_report() {
+        let packet = spectrum_packet(1).unwrap();
+        assert_eq!(
+            &packet[..17],
+            &[
+                0x2E, 0xAA, 0xEC, 0xEF, 0x00, 0x09, 0x01, 0xC0, 0xFF, 0xF2, 0x00, 0x01, 0x08, 0x00,
+                0xFF, 0x48, 0x00
+            ]
+        );
+        assert!(packet[17..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn rejects_unsupported_spectrum_styles() {
+        assert!(spectrum_packet(0).is_err());
+        assert!(spectrum_packet(5).is_err());
     }
 }

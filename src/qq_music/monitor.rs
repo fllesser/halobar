@@ -149,7 +149,7 @@ pub fn run(mode: super::DisplayMode, device: &pixelbar::PixelBar) -> Result<(), 
                                 ))?;
                             }
                             failed_track = Some((track_key, Instant::now(), is_retry));
-                            device.show_clock()?;
+                            device.show_spectrum()?;
                             lyrics_screen_active = false;
                             last_frame.clear();
                             thread::sleep(Duration::from_millis(500));
