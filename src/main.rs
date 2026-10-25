@@ -20,9 +20,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use qq_music::DisplayMode;
 
 #[cfg(windows)]
-const DEVICE_RETRY_INTERVAL: Duration = Duration::from_secs(1);
+const DEVICE_RETRY_INTERVAL: Duration = Duration::from_secs(3);
 #[cfg(windows)]
-const CONNECTION_NOTICE_DURATION: Duration = Duration::from_secs(2);
+const CONNECTION_NOTICE_DURATION: Duration = Duration::from_secs(5);
 
 fn main() {
     if let Err(error) = run() {
@@ -82,7 +82,7 @@ fn run() -> Result<(), String> {
                 Ok(Some(device)) => {
                     log_message("已连接 Halo PixelBar 字幕屏")?;
                     device.prepare_text_layout()?;
-                    device.send_text("HaloBar 已连接(Power By FLLess)")?;
+                    device.send_text("  HaloBar Connected (By FLLess)")?;
                     thread::sleep(CONNECTION_NOTICE_DURATION);
                     device.show_clock()?;
                     break device;
