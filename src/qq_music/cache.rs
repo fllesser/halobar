@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-use crate::lyrics::{self, LyricLine};
+use super::lyrics::{self, LyricLine};
 
 pub fn fetch_cached_for_track(
     title: &str,
@@ -221,8 +221,8 @@ mod tests {
         let path = std::env::var_os("HALOBAR_LOCAL_QRC_TEST_FILE").unwrap();
         let encrypted = std::fs::read(path).unwrap();
         let decrypted = decrypt_local_qrc(&encrypted).unwrap();
-        let parsed = crate::lyrics::parse_qrc(&decrypted)
-            .or_else(|_| crate::lyrics::parse_lrc(&decrypted))
+        let parsed = super::super::lyrics::parse_qrc(&decrypted)
+            .or_else(|_| super::super::lyrics::parse_lrc(&decrypted))
             .unwrap();
         assert!(!parsed.is_empty());
         assert!(parsed.iter().any(|line| !line.chunks.is_empty()));

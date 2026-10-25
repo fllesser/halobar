@@ -1,4 +1,4 @@
-use crate::lyrics::LyricLine;
+use super::lyrics::LyricLine;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -59,7 +59,7 @@ fn render_typewriter(
     max_bytes: usize,
 ) -> String {
     let chunks = if lyric.chunks.is_empty() {
-        vec![crate::lyrics::TimedChunk {
+        vec![super::lyrics::TimedChunk {
             at_ms: lyric.at_ms,
             text: lyric.text.clone(),
         }]
@@ -140,8 +140,8 @@ fn render_typewriter(
 
 #[cfg(test)]
 mod tests {
+    use super::super::lyrics::LyricLine;
     use super::{DisplayMode, at_position, render_scroll};
-    use crate::lyrics::LyricLine;
 
     #[test]
     fn scroll_mode_wraps_the_text() {
@@ -166,15 +166,15 @@ mod tests {
             at_ms: 1_000,
             text: "你好世界".to_owned(),
             chunks: vec![
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 1_000,
                     text: "你".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 1_600,
                     text: "好".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 2_800,
                     text: "世界".to_owned(),
                 },
@@ -202,7 +202,7 @@ mod tests {
             chunks: text
                 .chars()
                 .enumerate()
-                .map(|(index, character)| crate::lyrics::TimedChunk {
+                .map(|(index, character)| super::super::lyrics::TimedChunk {
                     at_ms: index as u64,
                     text: character.to_string(),
                 })
@@ -225,7 +225,7 @@ mod tests {
         let lyrics = [LyricLine {
             at_ms: 0,
             text: text.to_owned(),
-            chunks: vec![crate::lyrics::TimedChunk {
+            chunks: vec![super::super::lyrics::TimedChunk {
                 at_ms: 0,
                 text: text.to_owned(),
             }],
@@ -242,15 +242,15 @@ mod tests {
             at_ms: 0,
             text: "你好世界".to_owned(),
             chunks: vec![
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 0,
                     text: "你".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 10,
                     text: "好".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 20,
                     text: "世界".to_owned(),
                 },
@@ -278,7 +278,7 @@ mod tests {
             chunks: text
                 .chars()
                 .enumerate()
-                .map(|(index, character)| crate::lyrics::TimedChunk {
+                .map(|(index, character)| super::super::lyrics::TimedChunk {
                     at_ms: index as u64,
                     text: character.to_string(),
                 })
@@ -300,7 +300,7 @@ mod tests {
             chunks: text
                 .chars()
                 .enumerate()
-                .map(|(index, character)| crate::lyrics::TimedChunk {
+                .map(|(index, character)| super::super::lyrics::TimedChunk {
                     at_ms: index as u64,
                     text: character.to_string(),
                 })
@@ -319,15 +319,15 @@ mod tests {
             at_ms: 0,
             text: "A中B".to_owned(),
             chunks: vec![
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 0,
                     text: "A".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 10,
                     text: "中".to_owned(),
                 },
-                crate::lyrics::TimedChunk {
+                super::super::lyrics::TimedChunk {
                     at_ms: 20,
                     text: "B".to_owned(),
                 },
