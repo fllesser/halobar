@@ -22,8 +22,8 @@ pub struct MediaSnapshot {
 }
 
 pub struct MediaMonitor {
-    _apartment: RoApartment,
-    manager: GlobalSystemMediaTransportControlsSessionManager,
+    manager: Option<GlobalSystemMediaTransportControlsSessionManager>,
+    _apartment: Option<RoApartment>,
     cached_metadata: Option<CachedMediaMetadata>,
 }
 
@@ -38,20 +38,27 @@ impl MediaMonitor {
         let apartment = RoApartment::initialize()?;
         let manager = request_manager()?;
         Ok(Self {
-            _apartment: apartment,
-            manager,
+            manager: Some(manager),
+            _apartment: Some(apartment),
             cached_metadata: None,
         })
     }
 
     pub fn reconnect(&mut self) -> Result<(), String> {
-        self.manager = request_manager()?;
+        self.manager = None;
+        self._apartment = None;
         self.cached_metadata = None;
+        self._apartment = Some(RoApartment::initialize()?);
+        self.manager = Some(request_manager()?);
         Ok(())
     }
 
     pub fn current_qq_track(&mut self) -> Result<Option<MediaSnapshot>, String> {
-        let sessions = self.manager.GetSessions().map_err(api_error)?;
+        let manager = self
+            .manager
+            .as_ref()
+            .ok_or_else(|| "Windows 媒体会话管理器尚未连接".to_owned())?;
+        let sessions = manager.GetSessions().map_err(api_error)?;
         for index in 0..sessions.Size().map_err(api_error)? {
             let session = sessions.GetAt(index).map_err(api_error)?;
             let app_id = session
@@ -133,7 +140,7 @@ fn snapshot_session(
     }
     let metadata = cached_metadata
         .as_ref()
-        .expect("media metadata is refreshed when the cache is empty");
+        .ok_or_else(|| "读取 Windows 媒体会话失败: 媒体信息缓存未初始化".to_owned())?;
     Ok(MediaSnapshot {
         app_id,
         title: metadata.title.clone(),
